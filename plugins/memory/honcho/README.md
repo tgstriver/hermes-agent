@@ -1,6 +1,6 @@
 # Honcho Memory Provider
 
-AI-native cross-session user modeling with multi-pass dialectic reasoning, session summaries, bidirectional peer tools, and persistent conclusions.
+AI原生跨会话用户建模，具有多通道辩证推理、会话摘要、双向对等工具和持久结论
 
 > **Honcho docs:** <https://docs.honcho.dev/v3/guides/integrations/hermes>
 

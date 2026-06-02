@@ -491,6 +491,7 @@ class HonchoSessionManager:
         logger.info("Created new session for %s (honcho: %s)", key, session.honcho_session_id)
         return session
 
+    # Dialectic推理是有成本的，Honcho服务端的LLM调用按计算量计费。Hermes Agent支持五档推理级别
     _REASONING_LEVELS = ("minimal", "low", "medium", "high", "max")
 
     def _default_reasoning_level(self) -> str:

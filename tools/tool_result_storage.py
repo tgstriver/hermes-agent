@@ -1,25 +1,15 @@
-"""Tool result persistence -- preserves large outputs instead of truncating.
+"""工具结果持久化——完整保留大规模输出内容，而非对其进行截断处理。
 
-Defense against context-window overflow operates at three levels:
+上下文窗口溢出防护机制分为三个层级运行：
+1、单工具输出上限（各工具内部）：搜索文件等工具会在返回结果前，预先截断自身输出内容。这是第一道防护措施，也是唯一由工具开发人员自主管控的防护方式。
 
-1. **Per-tool output cap** (inside each tool): Tools like search_files
-   pre-truncate their own output before returning. This is the first line
-   of defense and the only one the tool author controls.
+2、单结果持久化存储（maybe_persist_tool_result函数）：工具执行完成返回结果后，若输出内容超出工具预设阈值（通过registry.get_max_result_size获取），
+系统会借助环境执行指令，将完整输出写入沙盒临时目录。
+示例路径：标准Linux系统下为/tmp/hermes-results/{tool_use_id}.txt，Termux环境下为$TMPDIR/hermes-results/{tool_use_id}.txt。
+上下文内的原始完整内容会被替换为内容预览+文件路径引用。大模型可通过读取文件指令，在任意后端环境中查看完整输出内容。
 
-2. **Per-result persistence** (maybe_persist_tool_result): After a tool
-   returns, if its output exceeds the tool's registered threshold
-   (registry.get_max_result_size), the full output is written INTO THE
-   SANDBOX temp dir (for example /tmp/hermes-results/{tool_use_id}.txt on
-   standard Linux, or $TMPDIR/hermes-results/{tool_use_id}.txt on Termux)
-   via env.execute(). The in-context content is replaced with a preview +
-   file path reference. The model can read_file to access the full output
-   on any backend.
-
-3. **Per-turn aggregate budget** (enforce_turn_budget): After all tool
-   results in a single assistant turn are collected, if the total exceeds
-   MAX_TURN_BUDGET_CHARS (200K), the largest non-persisted results are
-   spilled to disk until the aggregate is under budget. This catches cases
-   where many medium-sized results combine to overflow context.
+3、单轮总字符配额限制（enforce_turn_budget函数）：在单次智能助手交互轮次中，汇总所有工具执行结果后，若内容总字符数超出最大单轮字符配额（20万字符），
+系统会优先将体积最大、尚未持久化的结果转存至本地磁盘，直至整体内容体量控制在配额范围内。该机制可规避大量中等大小的结果叠加，进而引发上下文溢出的问题。
 """
 
 import logging
