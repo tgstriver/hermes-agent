@@ -1,34 +1,33 @@
 #!/usr/bin/env python3
 """
-AI Agent Runner with Tool Calling
+AI Agent 运行器 - 支持工具调用
 
-This module provides a clean, standalone agent that can execute AI models
-with tool calling capabilities. It handles the conversation loop, tool execution,
-and response management.
+本模块提供了一个干净、独立的智能体(Agent),能够执行带有工具调用能力的AI模型。
+它负责管理对话循环、工具执行和响应处理。
 
-Features:
-- Automatic tool calling loop until completion
-- Configurable model parameters
-- Error handling and recovery
-- Message history management
-- Support for multiple model providers
+主要功能:
+- 自动工具调用循环直到完成
+- 可配置的模型参数
+- 错误处理和恢复机制
+- 消息历史管理
+- 支持多个模型提供商
 
-Usage:
+使用示例:
     from run_agent import AIAgent
     
     agent = AIAgent(base_url="http://localhost:30000/v1", model="claude-opus-4-20250514")
-    response = agent.run_conversation("Tell me about the latest Python updates")
+    response = agent.run_conversation("告诉我最新的Python更新")
 """
 
-# IMPORTANT: hermes_bootstrap must be the very first import — UTF-8 stdio
-# on Windows.  No-op on POSIX.  See hermes_bootstrap.py for full rationale.
+# 重要: hermes_bootstrap 必须是第一个导入 —— 在Windows上设置UTF-8标准输入输出。
+# 在POSIX系统上是空操作。详见 hermes_bootstrap.py 了解完整原理。
 try:
     import hermes_bootstrap  # noqa: F401
 except ModuleNotFoundError:
-    # Graceful fallback when hermes_bootstrap isn't registered in the venv
-    # yet — happens during partial ``hermes update`` where git-reset landed
-    # new code but ``uv pip install -e .`` didn't finish.  Missing bootstrap
-    # means UTF-8 stdio setup is skipped on Windows; POSIX is unaffected.
+    # 当hermes_bootstrap尚未在虚拟环境中注册时的优雅回退
+    # —— 发生在部分 ``hermes update`` 期间,git-reset已拉取新代码但
+    # ``uv pip install -e .`` 尚未完成时。缺少bootstrap意味着在Windows上跳过UTF-8 stdio设置;
+    # POSIX系统不受影响。
     pass
 
 import asyncio
@@ -326,10 +325,10 @@ class _StreamErrorEvent(Exception):
 
 class AIAgent:
     """
-    AI Agent with tool calling capabilities.
+    支持工具调用的AI智能体(Agent)。
 
-    This class manages the conversation flow, tool execution, and response handling
-    for AI models that support function calling.
+    此类管理对话流程、工具执行和响应处理,
+    适用于支持函数调用的AI模型。
     """
 
     _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER = (
@@ -358,7 +357,7 @@ class AIAgent:
         command: str = None,
         args: list[str] | None = None,
         model: str = "",
-        max_iterations: int = 90,  # Default tool-calling iterations (shared with subagents)
+        max_iterations: int = 90,  # 默认工具调用迭代次数(与子智能体共享)
         tool_delay: float = 1.0,
         enabled_toolsets: List[str] = None,
         disabled_toolsets: List[str] = None,
@@ -415,7 +414,7 @@ class AIAgent:
         checkpoint_max_file_size_mb: int = 10,
         pass_session_id: bool = False,
     ):
-        """Forwarder — see ``agent.agent_init.init_agent``."""
+        """转发器 — 详见 ``agent.agent_init.init_agent``。"""
         from agent.agent_init import init_agent
         init_agent(
             self,
@@ -487,12 +486,11 @@ class AIAgent:
         )
 
     def _get_session_db_for_recall(self):
-        """Return a SessionDB for recall, lazily creating it if an entrypoint forgot.
+        """为召回功能返回一个SessionDB,如果入口点忘记传递则延迟创建。
 
-        Most frontends pass ``session_db`` into ``AIAgent`` explicitly, but recall
-        is important enough that a missing constructor argument should degrade by
-        opening the default state DB instead of making the advertised
-        ``session_search`` tool unusable.
+        大多数前端会显式地将 ``session_db`` 传递给 ``AIAgent``,但召回功能足够重要,
+        以至于缺少构造函数参数时应该通过打开默认状态数据库来降级,
+        而不是让已宣传的 ``session_search`` 工具无法使用。
         """
         if self._session_db is not None:
             return self._session_db
@@ -506,7 +504,7 @@ class AIAgent:
             return None
 
     def _ensure_db_session(self) -> None:
-        """Create session DB row on first use. Disables _session_db on failure."""
+        """首次使用时创建会话数据库行。失败时禁用 _session_db。"""
         if self._session_db_created or not self._session_db:
             return
         try:
@@ -602,25 +600,22 @@ class AIAgent:
         old_session_id: Optional[str] = None,
         carry_over_context: bool = False,
     ):
-        """Reset all session-scoped token counters to 0 for a fresh session.
+        """将所有会话范围的令牌计数器重置为0,以开始新会话。
         
-        This method encapsulates the reset logic for all session-level metrics
-        including:
-        - Token usage counters (input, output, total, prompt, completion)
-        - Cache read/write tokens
-        - API call count
-        - Reasoning tokens
-        - Estimated cost tracking
-        - Context compressor internal counters
+        此方法封装了所有会话级别指标的重置逻辑,包括:
+        - 令牌使用计数器(输入、输出、总计、提示、完成)
+        - 缓存读/写令牌
+        - API调用次数
+        - 推理令牌
+        - 估计成本跟踪
+        - 上下文压缩器内部计数器
         
-        The method safely handles optional attributes (e.g., context compressor)
-        using ``hasattr`` checks.
+        该方法使用 ``hasattr`` 检查安全地处理可选属性(例如上下文压缩器)。
 
-        When ``previous_messages`` / ``old_session_id`` / ``carry_over_context``
-        are provided, the active context engine is notified through the
-        full transition lifecycle (``_transition_context_engine_session``)
-        instead of a bare reset. Default callers pass nothing and keep the
-        existing reset-only behavior.
+        当提供 ``previous_messages`` / ``old_session_id`` / ``carry_over_context`` 时,
+        会通过完整的转换生命周期通知活动上下文引擎
+        (``_transition_context_engine_session``),而不是简单的重置。
+        默认调用者不传递任何内容并保持现有的仅重置行为。
         """
         # Token usage counters
         self.session_total_tokens = 0
@@ -687,16 +682,14 @@ class AIAgent:
         return switch_model(self, new_model, new_provider, api_key, base_url, api_mode)
 
     def _safe_print(self, *args, **kwargs):
-        """Print that silently handles broken pipes / closed stdout.
+        """静默处理断管/关闭stdout的打印函数。
 
-        In headless environments (systemd, Docker, nohup) stdout may become
-        unavailable mid-session.  A raw ``print()`` raises ``OSError`` which
-        can crash cron jobs and lose completed work.
+        在无头环境(systemd、Docker、nohup)中,stdout可能在会话中途变得不可用。
+        原始的 ``print()`` 会抛出 ``OSError``,这可能导致cron作业崩溃并丢失已完成的工作。
 
-        Internally routes through ``self._print_fn`` (default: builtin
-        ``print``) so callers such as the CLI can inject a renderer that
-        handles ANSI escape sequences properly (e.g. prompt_toolkit's
-        ``print_formatted_text(ANSI(...))``) without touching this method.
+        内部通过 ``self._print_fn`` (默认:内置 ``print``)路由,
+        因此调用者(如CLI)可以注入一个能正确处理ANSI转义序列的渲染器
+        (例如prompt_toolkit的 ``print_formatted_text(ANSI(...))``),而无需修改此方法。
         """
         try:
             fn = self._print_fn or print
@@ -1922,25 +1915,25 @@ class AIAgent:
 
     def interrupt(self, message: str = None) -> None:
         """
-        Request the agent to interrupt its current tool-calling loop.
+        请求智能体中断其当前的工具调用循环。
         
-        Call this from another thread (e.g., input handler, message receiver)
-        to gracefully stop the agent and process a new message.
+        从另一个线程(例如输入处理器、消息接收器)调用此方法,
+        以优雅地停止智能体并处理新消息。
         
-        Also signals long-running tool executions (e.g. terminal commands)
-        to terminate early, so the agent can respond immediately.
+        还会向长时间运行的工具执行(例如终端命令)发出信号以提前终止,
+        以便智能体能够立即响应。
         
-        Args:
-            message: Optional new message that triggered the interrupt.
-                     If provided, the agent will include this in its response context.
+        参数:
+            message: 可选的新消息,触发了中断。
+                     如果提供,智能体会将此包含在其响应上下文中。
         
-        Example (CLI):
-            # In a separate input thread:
+        示例(CLI):
+            # 在单独的输入线程中:
             if user_typed_something:
                 agent.interrupt(user_input)
         
-        Example (Messaging):
-            # When new message arrives for active session:
+        示例(消息传递):
+            # 当活动会话收到新消息时:
             if session_has_running_agent:
                 running_agent.interrupt(new_message.text)
         """
@@ -2023,21 +2016,19 @@ class AIAgent:
 
     def steer(self, text: str) -> bool:
         """
-        Inject a user message into the next tool result without interrupting.
+        将用户消息注入下一个工具结果而不中断。
 
-        Unlike interrupt(), this does NOT stop the current tool call. The
-        text is stashed and the agent loop appends it to the LAST tool
-        result's content once the current tool batch finishes. The model
-        sees the steer as part of the tool output on its next iteration.
+        与 interrupt() 不同,这不会停止当前的工具调用。文本被暂存,
+        当当前工具批次完成后,智能体循环将其附加到最后一个工具结果的内容中。
+        模型在其下一次迭代中将引导视为工具输出的一部分。
 
-        Thread-safe: callable from gateway/CLI/TUI threads. Multiple calls
-        before the drain point concatenate with newlines.
+        线程安全:可从网关/CLI/TUI线程调用。在排放点之前的多次调用会用换行符连接。
 
-        Args:
-            text: The user text to inject. Empty strings are ignored.
+        参数:
+            text: 要注入的用户文本。空字符串会被忽略。
 
-        Returns:
-            True if the steer was accepted, False if the text was empty.
+        返回:
+            如果引导被接受则返回True,如果文本为空则返回False。
         """
         if not text or not text.strip():
             return False
@@ -2398,17 +2389,17 @@ class AIAgent:
             pass
 
     def close(self) -> None:
-        """Release all resources held by this agent instance.
+        """释放此智能体实例持有的所有资源。
 
-        Cleans up subprocess resources that would otherwise become orphans:
-        - Background processes tracked in ProcessRegistry
-        - Terminal sandbox environments
-        - Browser daemon sessions
-        - Active child agents (subagent delegation)
-        - OpenAI/httpx client connections
+        清理可能成为孤儿的子进程资源:
+        - ProcessRegistry跟踪的后台进程
+        - 终端沙盒环境
+        - 浏览器守护进程会话
+        - 活动子智能体(子智能体委托)
+        - OpenAI/httpx客户端连接
 
-        Safe to call multiple times (idempotent).  Each cleanup step is
-        independently guarded so a failure in one does not prevent the rest.
+        可安全地多次调用(幂等)。每个清理步骤都独立保护,
+        因此一个步骤的失败不会阻止其他步骤执行。
         """
         task_id = getattr(self, "session_id", None) or ""
 
@@ -4412,26 +4403,26 @@ def main(
     log_prefix_chars: int = 20
 ):
     """
-    Main function for running the agent directly.
+    智能体运行的主函数。
 
-    Args:
-        query (str): Natural language query for the agent. Defaults to Python 3.13 example.
-        model (str): Model name to use (OpenRouter format: provider/model). Defaults to anthropic/claude-sonnet-4.6.
-        api_key (str): API key for authentication. Uses OPENROUTER_API_KEY env var if not provided.
-        base_url (str): Base URL for the model API. Defaults to https://openrouter.ai/api/v1
-        max_turns (int): Maximum number of API call iterations. Defaults to 10.
-        enabled_toolsets (str): Comma-separated list of toolsets to enable. Supports predefined
-                              toolsets (e.g., "research", "development", "safe").
-                              Multiple toolsets can be combined: "web,vision"
-        disabled_toolsets (str): Comma-separated list of toolsets to disable (e.g., "terminal")
-        list_tools (bool): Just list available tools and exit
-        save_trajectories (bool): Save conversation trajectories to JSONL files (appends to trajectory_samples.jsonl). Defaults to False.
-        save_sample (bool): Save a single trajectory sample to a UUID-named JSONL file for inspection. Defaults to False.
-        verbose (bool): Enable verbose logging for debugging. Defaults to False.
-        log_prefix_chars (int): Number of characters to show in log previews for tool calls/responses. Defaults to 20.
+    参数:
+        query (str): 智能体的自然语言查询。默认为Python 3.13示例。
+        model (str): 要使用的模型名称(OpenRouter格式: provider/model)。默认为anthropic/claude-sonnet-4.6。
+        api_key (str): API密钥用于身份验证。如果未提供,则使用OPENROUTER_API_KEY环境变量。
+        base_url (str): 模型API的基础URL。默认为https://openrouter.ai/api/v1
+        max_turns (int): 最大API调用迭代次数。默认为10。
+        enabled_toolsets (str): 要启用的工具集的逗号分隔列表。支持预定义的工具集
+                              (例如,"research", "development", "safe")。
+                              可以组合多个工具集:"web,vision"
+        disabled_toolsets (str): 要禁用的工具集的逗号分隔列表(例如,"terminal")
+        list_tools (bool): 仅列出可用工具并退出
+        save_trajectories (bool): 将对话轨迹保存到JSONL文件(追加到trajectory_samples.jsonl)。默认为False。
+        save_sample (bool): 将单个轨迹样本保存到UUID命名的JSONL文件以供检查。默认为False。
+        verbose (bool): 启用详细日志记录以进行调试。默认为False。
+        log_prefix_chars (int): 在工具调用/响应的日志预览中显示的字符数。默认为20。
 
-    Toolset Examples:
-        - "research": Web search, extract, crawl + vision tools
+    工具集示例:
+        - "research": Web搜索、提取、爬取 + 视觉工具
     """
     print("🤖 AI Agent with Tool Calling")
     print("=" * 50)
